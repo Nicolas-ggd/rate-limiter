@@ -39,10 +39,10 @@ func main() {
     // Call NewRateLimiter function from ls package, first parameter is Redis client
     // second parameter is quantity of request user can in certain timeframe,
     // third parameter is time type
-    limiter := ls.NewRateLimiter(client, 10, time.Minute)
+    limiter := rrl.NewRateLimiter(client, 10, time.Minute)
 
     // You can call RateLimiterMiddleware middleware from ls package and pass limiter
-    r.Use(ls.RateLimiterMiddleware(limiter))
+    r.Use(rrl.RateLimiterMiddleware(limiter))
 
     r.GET("/", func(c *gin.Context) {
         c.JSON(http.StatusOK, gin.H{"message": "Welcome!"})

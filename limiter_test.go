@@ -1,4 +1,4 @@
-package ls
+package rrl
 
 import (
 	"context"
@@ -21,7 +21,7 @@ func setupRedisClient() *redis.Client {
 
 func TestRateLimiter_Allow(t *testing.T) {
 	client := setupRedisClient()
-	limiter := NewRateLimiter(client, 5, time.Minute, "testPrefix:")
+	limiter := NewRateLimiter(client, 5, time.Minute)
 
 	tests := []struct {
 		name     string

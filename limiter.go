@@ -1,4 +1,4 @@
-package ls
+package rrl
 
 import (
 	"context"
@@ -7,8 +7,12 @@ import (
 	"github.com/go-redis/redis/v8"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
+
+// define constant variable of keyPrefix to avoid duplicate key in Redis
+const keyPrefix = "ls_prefix:"
 
 // RateLimiter is struct based on Redis
 type RateLimiter struct {
@@ -21,41 +25,41 @@ type RateLimiter struct {
 	// time interval for new request
 	interval time.Duration
 
-	// define keyPrefix to avoid duplicate key in Redis
-	keyPrefix string
+	// logger for logging rate limit events
+	logger *log.Logger
 }
 
 // NewRateLimiter to received and define new RateLimiter struct
-func NewRateLimiter(client *redis.Client, request int, interval time.Duration, keyPrefix string) *RateLimiter {
+func NewRateLimiter(client *redis.Client, request int, interval time.Duration) *RateLimiter {
 	return &RateLimiter{
-		client:    client,
-		request:   request,
-		interval:  interval,
-		keyPrefix: keyPrefix,
+		client:   client,
+		request:  request,
+		interval: interval,
+		logger:   log.New(os.Stdout, "RateLimiter: ", log.Lmicroseconds),
 	}
 }
 
 func (rl *RateLimiter) Allow(key string) bool {
-	redisKey := rl.keyPrefix + key
+	redisKey := keyPrefix + key
 
 	val, err := rl.client.Get(context.Background(), redisKey).Int()
 	if errors.Is(err, redis.Nil) {
 		err = rl.client.Set(context.Background(), redisKey, rl.request-1, rl.interval).Err()
 		if err != nil {
-			log.Printf("Error setting key in Redis: %+v\n", err)
+			rl.logger.Printf("Error setting key in Redis: %v", err)
 			return false
 		}
 
 		return true
 	} else if err != nil {
-		log.Printf("Error getting key from Redis: %+v\n", err)
+		rl.logger.Printf("Error getting key from Redis: %+v\n", err)
 		return false
 	}
 
 	if val > 0 {
 		_, err = rl.client.Decr(context.Background(), redisKey).Result()
 		if err != nil {
-			log.Printf("Error getting key from Redis: %+v\n", err)
+			rl.logger.Printf("Error getting key from Redis: %+v\n", err)
 			return false
 		}
 
@@ -70,6 +74,7 @@ func RateLimiterMiddleware(limiter *RateLimiter) gin.HandlerFunc {
 		ip := c.ClientIP()
 
 		if !limiter.Allow(ip) {
+			limiter.logger.Printf("Rate limit exceeded for IP: %s", ip)
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
 			c.Abort()
 			return
