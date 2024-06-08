@@ -21,7 +21,6 @@ Redis-based Rate Limiter
 package main
 
 import (
-    "context"
     "net/http"
     "time"
 
@@ -29,14 +28,6 @@ import (
     "github.com/go-redis/redis/v8"
     "github.com/Nicolas-ggd/rate-limiter"
 )
-
-var ctx = context.Background()
-
-type RedisRateLimiter struct {
-    client   *redis.Client
-    requests int
-    interval time.Duration
-}
 
 func main() {
     r := gin.Default()
