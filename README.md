@@ -42,10 +42,18 @@ func main() {
     limiter := rrl.NewRateLimiter(client, 10, time.Minute)
 
     // You can call RateLimiterMiddleware middleware from ls package and pass limiter
+	// This works for all route which is exist in your application,
+	// Or when you open web browser this works for static file already
     r.Use(rrl.RateLimiterMiddleware(limiter))
 
     r.GET("/", func(c *gin.Context) {
         c.JSON(http.StatusOK, gin.H{"message": "Welcome!"})
+    })
+    
+    // Using this way gives you possibility to allow RateLimiterMiddleware middleware
+    // To work for only /some route
+    r.GET("/some", rrl.RateLimiterMiddleware(limiter), func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{"message": "Some!"})
     })
 
     r.Run(":8080")
