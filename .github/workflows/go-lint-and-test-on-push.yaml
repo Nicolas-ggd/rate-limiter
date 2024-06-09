@@ -1,0 +1,25 @@
+# Name of this workflow
+name: Go Lint & Test
+
+# Triggered on pull request and push events for any branch
+on:
+  pull_request:
+    branches:
+      - "**"
+
+# Defining jobs
+jobs:
+  # Lint job for Go code
+  lint:
+    name: Lint Go Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3 # Checks out the code
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22' # Sets up Go 1.22
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.54 # Uses golangci-lint version 1.54
