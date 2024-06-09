@@ -44,7 +44,7 @@ func (rl *RateLimiter) Allow(key string) bool {
 
 	val, err := rl.client.Get(context.Background(), redisKey).Int()
 	if errors.Is(err, redis.Nil) {
-		err = rl.client.Set(context.Background(), redisKey, rl.request-1, rl.interval).Err()
+		err = rl.client.Set(context.Background(), redisKey, rl.request, rl.interval).Err()
 		if err != nil {
 			rl.logger.Printf("Error setting key in Redis: %v", err)
 			return false
