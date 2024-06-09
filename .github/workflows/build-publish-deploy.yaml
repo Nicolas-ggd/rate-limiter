@@ -1,11 +1,11 @@
-# Name of this workflow
-name: Go Lint & Test
-
-# Triggered on pull request and push events for any branch
+name: 'Deploy to master'
 on:
   pull_request:
     branches:
-      - "**"
+      - 'master'
+  push:
+    branches:
+      - 'master'
 
 # Defining jobs
 jobs:
