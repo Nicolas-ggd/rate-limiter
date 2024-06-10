@@ -57,10 +57,8 @@ func NewRateLimiter(client *redis.Client, request int, interval time.Duration) *
 //
 // bool: Returns true if the request is allowed, false otherwise.
 func (rl *RateLimiter) Allow(key string) bool {
-	redisKey := keyPrefix + key
-
-	// encode key
-	sEnc := encodeKey(redisKey)
+	// encode ip address only
+	sEnc := keyPrefix + encodeKey(key)
 
 	val, err := rl.client.Get(context.Background(), sEnc).Int()
 	if errors.Is(err, redis.Nil) {
