@@ -30,33 +30,33 @@ import (
 )
 
 func main() {
-    r := gin.Default()
+	r := gin.Default()
 
-    client := redis.NewClient(&redis.Options{
-        Addr: "localhost:6379",
-    })
+	client := redis.NewClient(&redis.Options{
+            Addr: "localhost:6379",
+	})
 
-    // Call NewRateLimiter function from ls package, first parameter is Redis client
-    // second parameter is quantity of request user can in certain timeframe,
-    // third parameter is time type
-    limiter := rrl.NewRateLimiter(client, 10, time.Minute)
+	// Call NewRateLimiter function from rrl package.
+	// First parameter is the Redis client.
+	// Second parameter is the rate (tokens per second).
+	// Third parameter is the maximum number of tokens.
+	limiter := rrl.NewRateLimiter(client, 1, 10)
 
-    // You can call RateLimiterMiddleware middleware from ls package and pass limiter
-	// This works for all route which is exist in your application,
-	// Or when you open web browser this works for static file already
-    r.Use(rrl.RateLimiterMiddleware(limiter))
+	// Use RateLimiterMiddleware from rrl package and pass limiter.
+	// This middleware works for all routes in your application,
+	// including static files served when you open a web browser.
+	r.Use(rrl.RateLimiterMiddleware(limiter, 1))
 
-    r.GET("/", func(c *gin.Context) {
-        c.JSON(http.StatusOK, gin.H{"message": "Welcome!"})
-    })
-    
-    // Using this way gives you possibility to allow RateLimiterMiddleware middleware
-    // To work for only /some route
-    r.GET("/some", rrl.RateLimiterMiddleware(limiter), func(c *gin.Context) {
-        c.JSON(http.StatusOK, gin.H{"message": "Some!"})
-    })
+	r.GET("/", func(c *gin.Context) {
+            c.JSON(http.StatusOK, gin.H{"message": "Welcome!"})
+	})
 
-    r.Run(":8080")
+	// Using this way allows the RateLimiterMiddleware to work for only specific routes.
+	r.GET("/some", rrl.RateLimiterMiddleware(limiter, 1), func(c *gin.Context) {
+            c.JSON(http.StatusOK, gin.H{"message": "Some!"})
+	})
+
+	r.Run(":8080")
 }
 
 ```
