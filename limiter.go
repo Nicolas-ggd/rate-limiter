@@ -98,7 +98,7 @@ func (rl *RateLimiter) IsRequestAllowed(key string, tokens int64) bool {
 
 	// if no previous data, initialize token count and last refill time
 	if errors.Is(err, redis.Nil) {
-		tokenCount = rl.maxTokens
+		tokenCount = tokens
 		lastRefillTime = time.Now()
 		rl.client.Set(context.Background(), sEnc, tokenCount, 0)
 		rl.client.Set(context.Background(), sEnc+"_lastRefillTime", lastRefillTime.Format(time.RFC3339), 0)
