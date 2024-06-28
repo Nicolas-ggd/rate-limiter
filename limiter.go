@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,14 +19,22 @@ const keyPrefix = "ls_prefix:"
 
 // RateLimiter is struct based on Redis
 type RateLimiter struct {
+	// represents the rate at which the bucket should be filled
+	rate int64
+
+	// represents the max tokens capacity that the bucket can hold
+	maxTokens int64
+
+	// tokens currently present in the bucket at any time
+	currentToken int64
+
+	// lastRefillTime represents time that this bucket fill operation was tried
+	lastRefillTime time.Time
+
+	mutex sync.Mutex
+
 	// client is redis Client
 	client *redis.Client
-
-	// number of requests a user can make to an API within a specified timeframe
-	request int
-
-	// time interval for new request
-	interval time.Duration
 
 	// logger for logging rate limit events
 	logger *log.Logger
@@ -37,16 +46,18 @@ func encodeKey(value string) string {
 }
 
 // NewRateLimiter to received and define new RateLimiter struct
-func NewRateLimiter(client *redis.Client, request int, interval time.Duration) *RateLimiter {
+func NewRateLimiter(client *redis.Client, rate, maxToken int64) *RateLimiter {
 	return &RateLimiter{
-		client:   client,
-		request:  request,
-		interval: interval,
-		logger:   log.New(os.Stdout, "RateLimiter: ", log.Lmicroseconds),
+		client:         client,
+		rate:           rate,
+		maxTokens:      maxToken,
+		lastRefillTime: time.Now(),
+		currentToken:   maxToken,
+		logger:         log.New(os.Stdout, "RateLimiter: ", log.Lmicroseconds),
 	}
 }
 
-// Allow function is a method of the RateLimiter struct. It is responsible for determining whether a specific request should be allowed based on the rate limiting rules.
+// IsRequestAllowed function is a method of the RateLimiter struct. It is responsible for determining whether a specific request should be allowed based on the rate limiting rules.
 // This function interacts with Redis to track and enforce the rate limit for a given key
 //
 // Parameters:
@@ -56,31 +67,52 @@ func NewRateLimiter(client *redis.Client, request int, interval time.Duration) *
 // Returns:
 //
 // bool: Returns true if the request is allowed, false otherwise.
-func (rl *RateLimiter) Allow(key string) bool {
-	// encode ip address only
+func (rl *RateLimiter) IsRequestAllowed(key string, tokens int64) bool {
+	// use mutex to avoid race condition
+	rl.mutex.Lock()
+	defer rl.mutex.Unlock()
+
+	// encode key
 	sEnc := keyPrefix + encodeKey(key)
 
-	val, err := rl.client.Get(context.Background(), sEnc).Int()
-	if errors.Is(err, redis.Nil) {
-		err = rl.client.Set(context.Background(), sEnc, rl.request-1, rl.interval).Err()
-		if err != nil {
-			rl.logger.Printf("Error setting key in Redis: %v", err)
-			return false
-		}
-
-		return true
-	} else if err != nil {
-		rl.logger.Printf("Error getting key from Redis: %+v\n", err)
+	// get current token count from Redis
+	tokenCount, err := rl.client.Get(context.Background(), sEnc).Int64()
+	if err != nil && errors.Is(err, redis.Nil) {
+		rl.logger.Printf("Error getting token count from Redis: %v", err)
 		return false
 	}
 
-	if val > 0 {
-		_, err = rl.client.Decr(context.Background(), sEnc).Result()
+	// get last refill time from Redis
+	lastRefillTime, err := rl.client.Get(context.Background(), sEnc+"_lastRefillTime").Time()
+	if err != nil && errors.Is(err, redis.Nil) {
+		rl.logger.Printf("Error getting last refill time from Redis: %v", err)
+		return false
+	}
+
+	// if no previous data, initialize token count and last refill time
+	if err == redis.Nil {
+		tokenCount = rl.maxTokens
+		lastRefillTime = time.Now()
+		rl.client.Set(context.Background(), sEnc, tokenCount, 0)
+		rl.client.Set(context.Background(), sEnc+"_lastRefillTime", lastRefillTime, 0)
+	}
+
+	// refill tokens
+	tokenCount, lastRefillTime = rl.refillBucket(lastRefillTime, tokenCount)
+
+	// update last refill time in Redis
+	rl.client.Set(context.Background(), sEnc+"_lastRefillTime", lastRefillTime, 0)
+
+	// check if enough tokens are available
+	if tokenCount >= tokens {
+		// decrement token count
+		tokenCount -= tokens
+		// update token count in Redis
+		err = rl.client.Set(context.Background(), sEnc, tokenCount, 0).Err()
 		if err != nil {
-			rl.logger.Printf("Error getting key from Redis: %+v\n", err)
+			rl.logger.Printf("Error setting token count in Redis: %v", err)
 			return false
 		}
-
 		return true
 	}
 
@@ -97,11 +129,11 @@ func (rl *RateLimiter) Allow(key string) bool {
 // Returns:
 //
 // gin.HandlerFunc: A Gin handler function that can be used as middleware in the Gin router.
-func RateLimiterMiddleware(limiter *RateLimiter) gin.HandlerFunc {
+func RateLimiterMiddleware(limiter *RateLimiter, tokens int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 
-		if !limiter.Allow(ip) {
+		if !limiter.IsRequestAllowed(ip, tokens) {
 			limiter.logger.Printf("Rate limit exceeded for IP: %s", ip)
 			c.Header("X-RateLimit-Remaining", "0")
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
@@ -111,4 +143,20 @@ func RateLimiterMiddleware(limiter *RateLimiter) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// refillBucket function calculate time, when token bucket can refill
+func (rl *RateLimiter) refillBucket(lastRefillTime time.Time, tokenCount int64) (int64, time.Time) {
+	now := time.Now()
+	duration := now.Sub(lastRefillTime)
+
+	// Calculate tokens to add based on elapsed time and rate
+	tokensToAdd := (duration.Nanoseconds() * rl.rate) / 1e9 // maybe this calculation isn't correct, but i try to avoid float64, because sometimes it not accuracy
+
+	tokenCount = tokenCount + tokensToAdd
+	if tokenCount > rl.maxTokens {
+		tokenCount = rl.maxTokens
+	}
+
+	return tokenCount, now
 }
