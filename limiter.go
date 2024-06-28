@@ -77,36 +77,43 @@ func (rl *RateLimiter) IsRequestAllowed(key string, tokens int64) bool {
 
 	// get current token count from Redis
 	tokenCount, err := rl.client.Get(context.Background(), sEnc).Int64()
-	if err != nil && errors.Is(err, redis.Nil) {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		rl.logger.Printf("Error getting token count from Redis: %v", err)
 		return false
 	}
 
 	// get last refill time from Redis
-	lastRefillTime, err := rl.client.Get(context.Background(), sEnc+"_lastRefillTime").Time()
-	if err != nil && errors.Is(err, redis.Nil) {
+	lastRefillTimeStr, err := rl.client.Get(context.Background(), sEnc+"_lastRefillTime").Result()
+	var lastRefillTime time.Time
+	if err == nil {
+		lastRefillTime, err = time.Parse(time.RFC3339, lastRefillTimeStr)
+		if err != nil {
+			rl.logger.Printf("Error parsing last refill time from Redis: %v", err)
+			return false
+		}
+	} else if !errors.Is(err, redis.Nil) {
 		rl.logger.Printf("Error getting last refill time from Redis: %v", err)
 		return false
 	}
 
 	// if no previous data, initialize token count and last refill time
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		tokenCount = rl.maxTokens
 		lastRefillTime = time.Now()
 		rl.client.Set(context.Background(), sEnc, tokenCount, 0)
-		rl.client.Set(context.Background(), sEnc+"_lastRefillTime", lastRefillTime, 0)
+		rl.client.Set(context.Background(), sEnc+"_lastRefillTime", lastRefillTime.Format(time.RFC3339), 0)
 	}
 
 	// refill tokens
 	tokenCount, lastRefillTime = rl.refillBucket(lastRefillTime, tokenCount)
 
 	// update last refill time in Redis
-	rl.client.Set(context.Background(), sEnc+"_lastRefillTime", lastRefillTime, 0)
+	rl.client.Set(context.Background(), sEnc+"_lastRefillTime", lastRefillTime.Format(time.RFC3339), 0)
 
 	// check if enough tokens are available
-	if tokenCount >= tokens {
+	if tokenCount > 0 {
 		// decrement token count
-		tokenCount -= tokens
+		tokenCount--
 		// update token count in Redis
 		err = rl.client.Set(context.Background(), sEnc, tokenCount, 0).Err()
 		if err != nil {
