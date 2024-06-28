@@ -1,6 +1,6 @@
-# GIN Rate Limiter
+# Rate Limiter
 
-This project demonstrates how to implement a rate limiter middleware in Golang using the Gin. The middleware limits the number of requests a user can make to an API within a specified timeframe.
+This project demonstrates how to implement a rate limiter middleware in Golang using Redis. The middleware limits the number of requests a user can make to an API within a specified timeframe.
 
 ## Features
 - Configurable Limits - Set the number of requests allowed per timeframe
