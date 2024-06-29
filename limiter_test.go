@@ -20,7 +20,7 @@ func setupRedisClient() *redis.Client {
 
 func TestRateLimiter_Allow(t *testing.T) {
 	client := setupRedisClient()
-	limiter := NewRateLimiter(client, 1, 5)
+	limiter := NewRateLimiter(client, 1, 5, time.Second)
 
 	tests := []struct {
 		name     string
