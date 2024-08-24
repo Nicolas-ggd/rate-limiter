@@ -1,10 +1,11 @@
 module github.com/Nicolas-ggd/rate-limiter
 
-go 1.22.2
+go 1.23
 
 require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/redis/go-redis/v9 v9.6.1
 	github.com/stretchr/testify v1.9.0
 )
 
