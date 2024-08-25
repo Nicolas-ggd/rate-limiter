@@ -4,6 +4,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"errors"
+	"github.com/redis/go-redis/v9"
 	"log"
 	"math"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
 // define constant variable of keyPrefix to avoid duplicate key in Redis

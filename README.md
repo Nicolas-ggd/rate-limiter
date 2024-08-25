@@ -21,12 +21,12 @@ Redis-based Rate Limiter
 package main
 
 import (
-    "net/http"
-    "time"
+	"net/http"
+	"time"
 
-    "github.com/gin-gonic/gin"
-    "github.com/go-redis/redis/v8"
-    "github.com/Nicolas-ggd/rate-limiter"
+	"github.com/Nicolas-ggd/rate-limiter"
+	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
