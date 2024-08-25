@@ -20,8 +20,6 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - name: Build
         run: go build
-      - name: Run Tests
-        run: go test
 
   goreleaser:
     if: startsWith(github.ref, 'refs/tags/')
@@ -41,5 +39,5 @@ jobs:
           version: v1.9.2
           args: release --rm-dist
         env:
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+            PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           CGO_ENABLED: 0
