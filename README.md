@@ -53,7 +53,7 @@ func main() {
 	})
 
 	// Using this way allows the RateLimiterMiddleware to work for only specific routes.
-	r.GET("/some", func(c *gin.Context) {
+	r.GET("/some", rrl.RateLimiterMiddleware(limiter), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "Some!"})
 	})
 
