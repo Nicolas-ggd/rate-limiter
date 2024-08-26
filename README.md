@@ -33,15 +33,20 @@ func main() {
 	r := gin.Default()
 
 	client := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+            Addr: "localhost:6379",
 	})
 
 	// Call NewRateLimiter function from rrl package.
-	// First parameter is the Redis client.
-	// Second parameter is the rate (tokens per second).
-	// Third parameter is the maximum number of tokens.
-	// Fourth parameter is time duration, token refill is depending on x time interval
-	limiter := rrl.NewRateLimiter(client, 1, 10, 30*time.Second)
+	limiter, err := rrl.NewRateLimiter(&rrl.RateLimiter{
+            Rate:           1, // amount of each request as a token
+            MaxTokens:      5, // maximum token quantity for requests
+            RefillInterval: 15 * time.Second, // each token fill in 'X' time frame
+            Client:         client, // redis client
+            HashKey:        false, // make true if you want to hash redis key
+	})
+	if err != nil {
+            log.Fatal(err)
+	}
 
 	// Use RateLimiterMiddleware from rrl package and pass limiter.
 	// This middleware works for all routes in your application,
@@ -49,12 +54,12 @@ func main() {
 	r.Use(rrl.RateLimiterMiddleware(limiter))
 
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "Welcome!"})
+            c.JSON(http.StatusOK, gin.H{"message": "Welcome!"})
 	})
 
 	// Using this way allows the RateLimiterMiddleware to work for only specific routes.
 	r.GET("/some", rrl.RateLimiterMiddleware(limiter), func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "Some!"})
+            c.JSON(http.StatusOK, gin.H{"message": "Some!"})
 	})
 
 	r.Run(":8080")
