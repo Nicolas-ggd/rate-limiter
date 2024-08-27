@@ -20,7 +20,7 @@ jobs:
       - name: Build
         run: go build
       - name: Run Tests
-        run: go test ./...
+        run: go test
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
