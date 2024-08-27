@@ -2,9 +2,8 @@ name: GO
 
 on:
   push:
-    # Sequence of patterns matched against refs/tags
     tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'v*'
 
 jobs:
   build:
@@ -20,9 +19,12 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - name: Build
         run: go build
+      - name: Run Tests
+        run: go test ./...
 
-  goreleaser:
+  release:
     if: startsWith(github.ref, 'refs/tags/')
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -40,5 +42,4 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           CGO_ENABLED: 0
