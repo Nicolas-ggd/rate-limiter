@@ -2,9 +2,9 @@
 This project showcases an implementation of a rate limiter middleware in Golang using Redis. The rate limiter restricts the number of requests a user can make to an API within a defined timeframe, helping to manage and control API usage effectively.
 
 ## Features
-- Configurable Limits - Set the maximum number of requests allowed per specified timeframe dynamically.
+- Easy configuration - During configuration phase, you can decide how many token is used in per request, you can configure maximum quantity of tokens, token refill time. However, you can decide to hash redis key or not.
 - Redis Integration - Utilizes Redis for efficient storage and retrieval of rate limiting data, ensuring scalability and performance.
-- Customizable Response - Define the response when the rate limit is exceeded.
+- Understanding Response - Defined response is showed when the rate limit is exceeded.
 
 ## Installation
 
